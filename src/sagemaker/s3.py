@@ -36,7 +36,9 @@ def parse_s3_url(url):
     """
     parsed_url = urlparse(url)
     if parsed_url.scheme != "s3":
-        raise ValueError("Expecting 's3' scheme, got: {} in {}.".format(parsed_url.scheme, url))
+        raise ValueError(
+            "Expecting 's3' scheme, got: {} in {}.".format(parsed_url.scheme, url)
+        )
     return parsed_url.netloc, parsed_url.path.lstrip("/")
 
 
@@ -62,7 +64,9 @@ class S3Uploader(object):
     """Contains static methods for uploading directories or files to S3."""
 
     @staticmethod
-    def upload(local_path, desired_s3_uri, kms_key=None, sagemaker_session=None):
+    def upload(
+        local_path, desired_s3_uri, kms_key=None, sagemaker_session=None, encrypt=None
+    ):
         """Static method that uploads a given file or directory to S3.
 
         Args:
@@ -79,9 +83,16 @@ class S3Uploader(object):
             The S3 uri of the uploaded file(s).
 
         """
+        if encrypt and kms_key:
+            raise ValueError(
+                "Please provide either encrypt or kms_key parameters and not both"
+            )
         sagemaker_session = sagemaker_session or Session()
         bucket, key_prefix = parse_s3_url(url=desired_s3_uri)
-        if kms_key is not None:
+        if encrypt:
+            extra_args = {"ServerSideEncryption": encrypt}
+
+        elif kms_key is not None:
             extra_args = {"SSEKMSKeyId": kms_key, "ServerSideEncryption": "aws:kms"}
 
         else:
@@ -92,7 +103,9 @@ class S3Uploader(object):
         )
 
     @staticmethod
-    def upload_string_as_file_body(body, desired_s3_uri=None, kms_key=None, sagemaker_session=None):
+    def upload_string_as_file_body(
+        body, desired_s3_uri=None, kms_key=None, sagemaker_session=None
+    ):
         """Static method that uploads a given file or directory to S3.
 
         Args:
@@ -181,5 +194,7 @@ class S3Downloader(object):
         sagemaker_session = sagemaker_session or Session()
         bucket, key_prefix = parse_s3_url(url=s3_uri)
 
-        file_keys = sagemaker_session.list_s3_files(bucket=bucket, key_prefix=key_prefix)
+        file_keys = sagemaker_session.list_s3_files(
+            bucket=bucket, key_prefix=key_prefix
+        )
         return [s3_path_join("s3://", bucket, file_key) for file_key in file_keys]
